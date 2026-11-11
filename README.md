@@ -105,6 +105,26 @@ fd 规则按**继承链**聚合：子进程整表复制父进程的 fd，一个�
 被升级过的告警会在看板上标「已升级」；在页面上点「认领」即停止后续升级。
 一个每 tick 都响的频道等于没有频道，所以默认策略是：**看板全量，聊天只挑严重且没人管的。**
 
+## 局域网访问
+
+默认只听 `127.0.0.1`。要让同网段的机器（手机、另一台电脑）打开看板：
+
+```jsonc
+// ~/.config/agent-guard/config.json
+{ "board_host": "0.0.0.0", "board_port": 7788 }
+```
+
+```bash
+# 只放行内网段，别对公网开口
+sudo ufw allow from 10.0.0.0/8     to any port 7788 proto tcp comment 'agent-guard board'
+sudo ufw allow from 172.16.0.0/12  to any port 7788 proto tcp comment 'agent-guard board'
+sudo ufw allow from 192.168.0.0/16 to any port 7788 proto tcp comment 'agent-guard board'
+systemctl --user restart agent-guard.board.service
+```
+
+> 看板**没有鉴权**：能连到端口的人都能看状态、点「认领」。请只用内网段放行，
+> 需要暴露到公网时在前面套一层带认证的反向代理。
+
 ## 配置
 
 默认值写在 `agent_guard/config.py`，覆盖写在 `~/.config/agent-guard/config.json`：
@@ -142,6 +162,7 @@ python3 -m agent_guard.cli init-config    # 导出全部默认值
 - [ ] 规则热加载与每规则独立阈值文件（YAML）
 - [ ] 检测「agent 会话级」浪费：按 cgroup / 会话归集开销，而不是按进程
 - [ ] macOS 的 fd 与 IO 采样（`libproc` / `lsof`）
+- [ ] 看板鉴权（token / 反向代理示例）
 - [ ] 看板历史导出（JSONL / 截图）与多机聚合
 - [ ] 把「本次 AI 会话让机器多付了多少」做成一张账单
 
