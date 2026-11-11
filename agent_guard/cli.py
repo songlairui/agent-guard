@@ -35,7 +35,14 @@ def cmd_tick(args, cfg: Config) -> int:
         dry_run=args.dry_run,
         # --dry-run wins over everything: nothing may be touched.
         fix=cfg.fix_enabled and not args.no_fix and not args.dry_run,
+        force=args.force,
     )
+    if result.get("skipped") == "too_soon" and not args.dry_run:
+        print(
+            f"agent-guard: 距上次采样只有 {result['since_seconds']} 秒，跳过本次"
+            f"（CPU 差值需要足够间隔；确需重跑用 --force）"
+        )
+        return 0
     if args.json:
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0
@@ -161,6 +168,7 @@ def build_parser() -> argparse.ArgumentParser:
     tick.add_argument("--dry-run", action="store_true", help="只打印，不写库、不处置")
     tick.add_argument("--no-fix", action="store_true", help="只报警，不自动清理")
     tick.add_argument("--json", action="store_true", help="输出 JSON")
+    tick.add_argument("--force", action="store_true", help="忽略最小采样间隔，强制重跑")
     tick.set_defaults(func=cmd_tick)
 
     serve = sub.add_parser("serve", help="启动操作看板")

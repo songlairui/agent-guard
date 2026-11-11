@@ -227,7 +227,7 @@
         const body = el("top").querySelector("tbody");
         body.innerHTML = rows.length
           ? rows.map((p) => `<tr><td>${esc(p.comm)}</td><td class="num">${p.pid}</td><td class="num">${p.cpu}</td><td class="num">${p.rss_mb}</td></tr>`).join("")
-          : `<tr><td colspan="4" class="empty">暂无采样</td></tr>`;
+          : `<tr><td colspan="4" class="empty">这一 tick 没有进程占用超过 0.5% —— 机器是空闲的</td></tr>`;
       }
 
       function renderActions(actions) {

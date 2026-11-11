@@ -169,7 +169,7 @@ def evaluate(snap: Snapshot, cfg: Config, state: dict) -> tuple[list[Finding], l
     live_keys: set[str] = set()
 
     if cfg.cpu_hog.enabled:
-        for proc in snap.top(limit=12):
+        for proc in sorted(snap.processes, key=lambda p: p.cpu_pct, reverse=True)[:12]:
             if proc.cpu_pct < cfg.cpu_hog_pct:
                 continue
             key = f"cpu:{proc.comm}:{proc.pid}"

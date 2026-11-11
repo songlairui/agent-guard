@@ -59,8 +59,11 @@ class Snapshot:
     def load_ratio(self) -> float:
         return self.load1 / self.cores if self.cores else 0.0
 
-    def top(self, limit: int = 8) -> list[ProcessSample]:
-        return sorted(self.processes, key=lambda p: p.cpu_pct, reverse=True)[:limit]
+    def top(self, limit: int = 8, floor: float = 0.5) -> list[ProcessSample]:
+        """Busiest processes.  Kernel threads (empty cmdline) and idle processes are
+        noise in a table whose only job is "who is eating the machine"."""
+        busy = [p for p in self.processes if p.cmdline and p.cpu_pct >= floor]
+        return sorted(busy, key=lambda p: p.cpu_pct, reverse=True)[:limit]
 
 
 def collect(cfg, counters: dict | None = None) -> Snapshot:

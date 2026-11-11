@@ -22,8 +22,20 @@ def tick_once(
     state: dict,
     dry_run: bool = False,
     fix: bool = False,
+    force: bool = False,
 ) -> dict:
     started = time.monotonic()
+
+    # Two ticks a few seconds apart produce nonsense deltas (CPU% is delta over
+    # the real interval), so a manual run right after the timer is a no-op unless
+    # the caller insists.
+    if not dry_run and not force:
+        previous = store.recent_ticks(1)
+        if previous:
+            since = time.time() - previous[0]["ts"]
+            if since < max(30.0, cfg.tick_seconds / 2):
+                return {"ts": time.time(), "skipped": "too_soon", "since_seconds": round(since, 1)}
+
     snap = sampler.collect(cfg, counters)
     findings, orphans = rules.evaluate(snap, cfg, state)
 
