@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>agent-guard · 操作看板</title>
+    <style>
+      :root {
+        --bg: #0c0e12;
+        --panel: #14171d;
+        --panel-2: #191d25;
+        --line: #242a34;
+        --fg: #e6e9ef;
+        --muted: #8b94a5;
+        --ok: #59d18c;
+        --warn: #e8b44f;
+        --crit: #ef6b6b;
+        --info: #6aa9ef;
+        --mono: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, monospace;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font: 14px/1.55 system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      }
+      a { color: var(--info); }
+      .wrap { max-width: 1180px; margin: 0 auto; padding: 26px 20px 60px; }
+      header { display: flex; flex-wrap: wrap; gap: 14px; align-items: baseline; justify-content: space-between; }
+      h1 { font-size: 20px; margin: 0; letter-spacing: 0.2px; }
+      .sub { color: var(--muted); font-size: 12.5px; }
+      .pill {
+        display: inline-flex; align-items: center; gap: 7px;
+        padding: 4px 11px; border-radius: 999px; font-size: 12.5px;
+        border: 1px solid var(--line); background: var(--panel);
+      }
+      .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+      .dot.ok { background: var(--ok); box-shadow: 0 0 10px var(--ok); }
+      .dot.warn { background: var(--warn); box-shadow: 0 0 10px var(--warn); }
+      .dot.crit { background: var(--crit); box-shadow: 0 0 10px var(--crit); }
+
+      .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin: 20px 0 8px; }
+      .kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
+      .kpi .label { color: var(--muted); font-size: 12px; letter-spacing: 0.3px; }
+      .kpi .value { font-family: var(--mono); font-size: 26px; margin-top: 6px; }
+      .kpi .value small { font-size: 13px; color: var(--muted); margin-left: 4px; }
+      .kpi.crit .value { color: var(--crit); }
+      .kpi.warn .value { color: var(--warn); }
+
+      section { margin-top: 26px; }
+      h2 { font-size: 14px; color: var(--muted); font-weight: 600; letter-spacing: 0.4px; margin: 0 0 10px; text-transform: uppercase; }
+
+      .chart { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
+      .chart svg { width: 100%; height: 120px; display: block; }
+      .chart .legend { display: flex; gap: 16px; color: var(--muted); font-size: 12px; margin-top: 8px; }
+      .swatch { display: inline-block; width: 10px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+
+      table { width: 100%; border-collapse: collapse; font-size: 13px; }
+      th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); }
+      th { color: var(--muted); font-weight: 500; font-size: 12px; }
+      td.num { font-family: var(--mono); text-align: right; }
+      tr:last-child td { border-bottom: none; }
+      .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+
+      .incident { border: 1px solid var(--line); border-left-width: 4px; border-radius: 12px; padding: 13px 15px; margin-bottom: 10px; background: var(--panel); }
+      .incident.critical { border-left-color: var(--crit); }
+      .incident.warn { border-left-color: var(--warn); }
+      .incident.info { border-left-color: var(--info); }
+      .incident .top { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+      .incident .title { font-weight: 600; }
+      .incident .meta { color: var(--muted); font-size: 12px; font-family: var(--mono); }
+      .incident .body { margin: 8px 0 0; }
+      .incident code, code.inline { font-family: var(--mono); background: var(--panel-2); padding: 1px 5px; border-radius: 5px; }
+      .incident .hint { color: var(--muted); font-size: 12px; margin-top: 7px; font-family: var(--mono); word-break: break-all; }
+      button {
+        font: inherit; font-size: 12.5px; color: var(--fg); background: var(--panel-2);
+        border: 1px solid var(--line); border-radius: 9px; padding: 5px 12px; cursor: pointer;
+      }
+      button:hover { border-color: var(--muted); }
+      button:disabled { opacity: 0.45; cursor: default; }
+
+      .actions { font-family: var(--mono); font-size: 12.5px; }
+      .actions .row { display: grid; grid-template-columns: 92px 74px 1fr; gap: 10px; padding: 7px 12px; border-bottom: 1px solid var(--line); }
+      .actions .row:last-child { border-bottom: none; }
+      .kind-reap { color: var(--ok); }
+      .kind-skip { color: var(--muted); }
+      .empty { color: var(--muted); padding: 16px; text-align: center; }
+      footer { margin-top: 32px; color: var(--muted); font-size: 12px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+      .stale { color: var(--warn); }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <div>
+          <h1>agent-guard <span class="sub">操作看板</span></h1>
+          <div class="sub" id="hostline">正在加载…</div>
+        </div>
+        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap">
+          <span class="pill"><span class="dot" id="dot"></span><span id="statustext">…</span></span>
+          <span class="pill" id="fixpill">自动处置 …</span>
+        </div>
+      </header>
+
+      <div class="kpis" id="kpis"></div>
+
+      <section>
+        <h2>负载趋势</h2>
+        <div class="chart">
+          <svg id="chart" viewBox="0 0 600 120" preserveAspectRatio="none"></svg>
+          <div class="legend">
+            <span><span class="swatch" style="background: #6aa9ef"></span>load1 / 核数</span>
+            <span><span class="swatch" style="background: #e8b44f"></span>CPU pressure avg300</span>
+            <span><span class="swatch" style="background: #8b94a5"></span>内存占用</span>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>未处理告警</h2>
+        <div id="incidents"></div>
+      </section>
+
+      <section>
+        <h2>当前最吃资源</h2>
+        <div class="panel"><table id="top"><thead><tr><th>进程</th><th class="num">PID</th><th class="num">CPU %</th><th class="num">RSS MiB</th></tr></thead><tbody></tbody></table></div>
+      </section>
+
+      <section>
+        <h2>最近动作</h2>
+        <div class="panel actions" id="actions"></div>
+      </section>
+
+      <section>
+        <h2>告警时间线</h2>
+        <div class="panel"><table id="timeline"><thead><tr><th>始</th><th>标题</th><th>状态</th><th>持续</th></tr></thead><tbody></tbody></table></div>
+      </section>
+
+      <footer>
+        <span id="footer-left"></span>
+        <span>每 15 秒刷新 · <code class="inline">agent-guard serve</code></span>
+      </footer>
+    </div>
+
+    <script type="module">
+      const REFRESH_MS = 15000;
+
+      const el = (id) => document.getElementById(id);
+      const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+      const mins = (s) => {
+        const v = Math.max(0, s);
+        if (v < 3600) return Math.round(v / 60) + " 分钟";
+        if (v < 86400) return (v / 3600).toFixed(1) + " 小时";
+        return (v / 86400).toFixed(1) + " 天";
+      };
+
+      function kpi(label, value, unit, tone) {
+        return `<div class="kpi ${tone || ""}">
+          <div class="label">${esc(label)}</div>
+          <div class="value">${esc(value)}${unit ? `<small>${esc(unit)}</small>` : ""}</div>
+        </div>`;
+      }
+
+      function drawChart(history) {
+        const svg = el("chart");
+        if (!history.length) { svg.innerHTML = ""; return; }
+        const W = 600, H = 120, pad = 4;
+        const series = (fn) => {
+          const vals = history.map(fn);
+          const max = Math.max(1, ...vals.map((v) => (Number.isFinite(v) ? v : 0)));
+          return vals.map((v, i) => {
+            const x = history.length === 1 ? W / 2 : (i / (history.length - 1)) * (W - pad * 2) + pad;
+            const y = H - pad - (Math.min(v, max) / max) * (H - pad * 2);
+            return `${x.toFixed(1)},${y.toFixed(1)}`;
+          }).join(" ");
+        };
+        const load = series((t) => (t.cores ? t.load1 / t.cores : 0));
+        const pressure = series((t) => (t.pressure || 0) / 100);
+        const mem = series((t) => (t.mem_total_mb ? t.mem_used_mb / t.mem_total_mb : 0));
+        svg.innerHTML = `
+          <polyline points="${mem}" fill="none" stroke="#8b94a5" stroke-width="1.2" opacity="0.7"/>
+          <polyline points="${pressure}" fill="none" stroke="#e8b44f" stroke-width="1.6"/>
+          <polyline points="${load}" fill="none" stroke="#6aa9ef" stroke-width="2"/>
+        `;
+      }
+
+      function renderIncidents(incidents, now) {
+        const host = el("incidents");
+        if (!incidents.length) {
+          host.innerHTML = `<div class="panel"><div class="empty">没有未处理告警 — 机器是安静的</div></div>`;
+          return;
+        }
+        host.innerHTML = incidents
+          .map((inc) => {
+            const age = (now - inc.first_seen) / 1;
+            const acked = inc.acked_at ? `<span class="meta">已认领</span>` : "";
+            return `<div class="incident ${esc(inc.severity)}">
+              <div class="top">
+                <span class="title">${esc(inc.title)}</span>
+                <span class="meta">${esc(inc.key)} · 已持续 ${esc(mins(age))} ${acked}</span>
+              </div>
+              <div class="body">${formatBody(inc.body)}</div>
+              ${inc.hint ? `<div class="hint">→ ${esc(inc.hint)}</div>` : ""}
+              ${inc.acked_at ? "" : `<div style="margin-top:10px"><button data-ack="${esc(inc.key)}">认领（停止升级）</button></div>`}
+            </div>`;
+          })
+          .join("");
+        host.querySelectorAll("button[data-ack]").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            btn.disabled = true;
+            await fetch(`/api/incidents/${encodeURIComponent(btn.dataset.ack)}/ack`, { method: "POST" });
+            refresh();
+          });
+        });
+      }
+
+      // Findings carry light markdown (backticks, **bold**); render just those two.
+      function formatBody(text) {
+        return esc(text)
+          .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+          .replace(/`([^`]+)`/g, "<code>$1</code>")
+          .replace(/\n/g, "<br/>");
+      }
+
+      function renderTop(rows) {
+        const body = el("top").querySelector("tbody");
+        body.innerHTML = rows.length
+          ? rows.map((p) => `<tr><td>${esc(p.comm)}</td><td class="num">${p.pid}</td><td class="num">${p.cpu}</td><td class="num">${p.rss_mb}</td></tr>`).join("")
+          : `<tr><td colspan="4" class="empty">暂无采样</td></tr>`;
+      }
+
+      function renderActions(actions) {
+        const host = el("actions");
+        host.innerHTML = actions.length
+          ? actions
+              .map((a) => {
+                const t = new Date(a.ts * 1000).toLocaleTimeString("zh-CN", { hour12: false });
+                return `<div class="row"><span>${t}</span><span class="kind-${esc(a.kind)}">${esc(a.kind)}</span><span>${esc(a.target)} — ${esc(a.detail)}</span></div>`;
+              })
+              .join("")
+          : `<div class="empty">还没有自动处置记录</div>`;
+      }
+
+      function renderTimeline(rows, now) {
+        const body = el("timeline").querySelector("tbody");
+        body.innerHTML = rows.length
+          ? rows
+              .map((r) => {
+                const start = new Date(r.first_seen * 1000).toLocaleString("zh-CN", { hour12: false });
+                const span = ((r.closed_at || now) - r.first_seen);
+                const state = r.closed_at ? "已恢复" : r.acked_at ? "已认领" : "未处理";
+                return `<tr><td>${esc(start)}</td><td>${esc(r.title)}</td><td>${esc(state)}</td><td class="num">${esc(mins(span))}</td></tr>`;
+              })
+              .join("")
+          : `<tr><td colspan="4" class="empty">暂无记录</td></tr>`;
+      }
+
+      function renderKpis(data) {
+        const latest = data.latest;
+        const now = data.now;
+        if (!latest) {
+          el("kpis").innerHTML = `<div class="kpi"><div class="label">尚未采样</div><div class="value">—</div></div>`;
+          return;
+        }
+        const loadTone = latest.load1 / (latest.cores || 1) >= 2 ? "crit" : latest.load1 / (latest.cores || 1) >= 1 ? "warn" : "";
+        const memRatio = latest.mem_total_mb ? (latest.mem_used_mb / latest.mem_total_mb) * 100 : 0;
+        const memTone = memRatio >= 92 ? "crit" : memRatio >= 80 ? "warn" : "";
+        const pressureTone = latest.pressure >= 50 ? "warn" : "";
+        el("kpis").innerHTML =
+          kpi("load1", Number(latest.load1).toFixed(2), `/ ${latest.cores} 核`, loadTone) +
+          kpi("内存占用", memRatio.toFixed(0), "%", memTone) +
+          kpi("CPU pressure", Number(latest.pressure).toFixed(0), "% avg300", pressureTone) +
+          kpi("未处理告警", data.incidents.length, "", data.incidents.some((i) => i.severity === "critical") ? "crit" : data.incidents.length ? "warn" : "");
+      }
+
+      async function refresh() {
+        let data;
+        try {
+          const res = await fetch("/api/snapshot", { cache: "no-store" });
+          if (!res.ok) throw new Error(res.status);
+          data = await res.json();
+        } catch (err) {
+          el("dot").className = "dot crit";
+          el("statustext").textContent = "看板接口不可达";
+          return;
+        }
+        const latest = data.latest;
+        const age = latest ? data.now - latest.ts : Infinity;
+        const worst = data.incidents.some((i) => i.severity === "critical") ? "crit" : data.incidents.length ? "warn" : "ok";
+        el("dot").className = `dot ${worst}`;
+        el("statustext").textContent =
+          worst === "crit" ? "有严重告警" : worst === "warn" ? "有告警待处理" : "运行正常";
+        el("fixpill").textContent = data.fix_enabled ? "自动处置：开" : "自动处置：关";
+        el("hostline").textContent = `${data.host} · 上次采样 ${latest ? mins(age) + "前" : "无"} · 采样间隔 ${Math.round(data.tick_seconds / 60)} 分钟`;
+        renderKpis(data);
+        drawChart(data.history || []);
+        renderIncidents(data.incidents || [], data.now);
+        renderTop(data.top || []);
+        renderActions(data.actions || []);
+        renderTimeline(data.history_incidents || [], data.now);
+        el("footer-left").innerHTML =
+          age > data.tick_seconds * 2.5
+            ? `<span class="stale">⚠ 采样已经 ${mins(age)} 没更新——检查 agent-guard.timer</span>`
+            : `采样正常（每 ${Math.round(data.tick_seconds / 60)} 分钟一次）`;
+      }
+
+      refresh();
+      setInterval(refresh, REFRESH_MS);
+    </script>
+  </body>
+</html>
